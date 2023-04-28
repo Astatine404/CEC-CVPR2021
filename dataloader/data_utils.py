@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from dataloader.sampler import CategoriesSampler
+from dataloader.datasets import *
 
 def set_up_datasets(args):
     if args.dataset == 'cifar100':
@@ -35,14 +36,37 @@ def get_dataloader(args,session):
     return trainset, trainloader, testloader
 
 def get_base_dataloader(args):
-    txt_path = "data/index_list/" + args.dataset + "/session_" + str(0 + 1) + '.txt'
+    txt_path = "data/index_list/" + args.dataset_dir + "/session_" + str(0 + 1) + '.txt'
     class_index = np.arange(args.base_class)
+    target_transform = None
     if args.dataset == 'cifar100':
+        if args.dataset_type == 'biased':
+            class_index = custom_base_classes
+            target_transform = lambda target: class_map[target]
+        elif args.dataset_type == 'random':
+            class_index = custom_base_classes_random
+            target_transform = lambda target: class_map_random[target]
+            if args.dataset_dir == 'random_1':
+                class_index = custom_base_classes_random_1
+                target_transform = lambda target: class_map_random_1[target]
+            elif args.dataset_dir == 'random_2':
+                class_index = custom_base_classes_random_2
+                target_transform = lambda target: class_map_random_2[target]
+        elif args.dataset_type == 'superrandom':
+            if args.dataset_dir == 'superrandom_1':
+                class_index = custom_base_classes_superrandom_1
+                target_transform = lambda target: class_map_superrandom_1[target]
+            elif args.dataset_dir == 'superrandom_2':
+                class_index = custom_base_classes_superrandom_2
+                target_transform = lambda target: class_map_superrandom_2[target]
+            elif args.dataset_dir == 'superrandom_5':
+                class_index = custom_base_classes_superrandom_5
+                target_transform = lambda target: class_map_superrandom_5[target]
 
         trainset = args.Dataset.CIFAR100(root=args.dataroot, train=True, download=True,
-                                         index=class_index, base_sess=True)
+                                         index=class_index, base_sess=True, target_transform=target_transform)
         testset = args.Dataset.CIFAR100(root=args.dataroot, train=False, download=False,
-                                        index=class_index, base_sess=True)
+                                        index=class_index, base_sess=True, target_transform=target_transform)
 
     if args.dataset == 'cub200':
         trainset = args.Dataset.CUB200(root=args.dataroot, train=True,
@@ -98,11 +122,34 @@ def get_base_dataloader_meta(args):
     return trainset, trainloader, testloader
 
 def get_new_dataloader(args,session):
-    txt_path = "data/index_list/" + args.dataset + "/session_" + str(session + 1) + '.txt'
+    txt_path = "data/index_list/" + args.dataset_dir + "/session_" + str(session + 1) + '.txt'
+    target_transform = None
     if args.dataset == 'cifar100':
+        if args.dataset_type == 'biased':
+            txt_path = "data/index_list/biased/" + args.dataset + "/session_" + str(session + 1) + '.txt'
+            target_transform = lambda target: class_map[target]
+        elif args.dataset_type == 'random':
+            txt_path = "data/index_list/" + args.dataset_dir + "/session_" + str(session + 1) + '.txt'
+            target_transform = lambda target: class_map_random[target]
+            if args.dataset_dir == 'random_1':
+                class_index = custom_base_classes_random_1
+                target_transform = lambda target: class_map_random_1[target]
+            elif args.dataset_dir == 'random_2':
+                class_index = custom_base_classes_random_2
+                target_transform = lambda target: class_map_random_2[target]
+        elif args.dataset_type == 'superrandom':
+            if args.dataset_dir == 'superrandom_1':
+                class_index = custom_base_classes_superrandom_1
+                target_transform = lambda target: class_map_superrandom_1[target]
+            elif args.dataset_dir == 'superrandom_2':
+                class_index = custom_base_classes_superrandom_2
+                target_transform = lambda target: class_map_superrandom_2[target]
+            elif args.dataset_dir == 'superrandom_5':
+                class_index = custom_base_classes_superrandom_5
+                target_transform = lambda target: class_map_superrandom_5[target]
         class_index = open(txt_path).read().splitlines()
         trainset = args.Dataset.CIFAR100(root=args.dataroot, train=True, download=False,
-                                         index=class_index, base_sess=False)
+                                         index=class_index, base_sess=False, target_transform=target_transform)
     if args.dataset == 'cub200':
         trainset = args.Dataset.CUB200(root=args.dataroot, train=True,
                                        index_path=txt_path)
@@ -122,7 +169,7 @@ def get_new_dataloader(args,session):
 
     if args.dataset == 'cifar100':
         testset = args.Dataset.CIFAR100(root=args.dataroot, train=False, download=False,
-                                        index=class_new, base_sess=False)
+                                        index=class_new, base_sess=False, target_transform=target_transform)
     if args.dataset == 'cub200':
         testset = args.Dataset.CUB200(root=args.dataroot, train=False,
                                       index=class_new)
@@ -137,4 +184,35 @@ def get_new_dataloader(args,session):
 
 def get_session_classes(args,session):
     class_list=np.arange(args.base_class + session * args.way)
+    if args.dataset_type == 'biased':
+        class_list = custom_base_classes.copy()
+        for sess in range(session):
+            class_list += custom_inc_classes[sess]
+    elif args.dataset_type == 'random':
+        class_list = custom_base_classes_random.copy()
+        for sess in range(session):
+            class_list += custom_inc_classes_random[sess]
+        
+        if args.dataset_dir == 'random_1':
+            class_list = custom_base_classes_random_1.copy()
+            for sess in range(session):
+                class_list += custom_inc_classes_random_1[sess]
+        elif args.dataset_dir == 'random_2':
+            class_list = custom_base_classes_random_2.copy()
+            for sess in range(session):
+                class_list += custom_inc_classes_random_2[sess]
+    elif args.dataset_type == 'superrandom':
+        if args.dataset_dir == 'superrandom_1':
+            class_list = custom_base_classes_superrandom_1.copy()
+            for sess in range(session):
+                class_list += custom_inc_classes_superrandom_1[sess]
+        elif args.dataset_dir == 'superrandom_2':
+            class_list = custom_base_classes_superrandom_2.copy()
+            for sess in range(session):
+                class_list += custom_inc_classes_superrandom_2[sess]
+        elif args.dataset_dir == 'superrandom_5':
+            class_list = custom_base_classes_superrandom_5.copy()
+            for sess in range(session):
+                class_list += custom_inc_classes_superrandom_5[sess]
+                
     return class_list

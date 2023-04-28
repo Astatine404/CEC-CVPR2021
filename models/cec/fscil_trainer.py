@@ -2,12 +2,13 @@ from models.base.fscil_trainer import FSCILTrainer as Trainer
 import os.path as osp
 import torch.nn as nn
 from copy import deepcopy
+import wandb
 
 from .helper import *
 from utils import *
 from dataloader.data_utils import *
 from .Network import MYNET
-
+from dataloader.datasets import *
 
 class FSCILTrainer(Trainer):
     def __init__(self, args):
@@ -49,14 +50,37 @@ class FSCILTrainer(Trainer):
         return trainset, trainloader, testloader
 
     def get_base_dataloader_meta(self):
-        txt_path = "data/index_list/" + self.args.dataset + "/session_" + str(0 + 1) + '.txt'
+        txt_path = "data/index_list/" + self.args.dataset_dir + "/session_" + str(0 + 1) + '.txt'
         class_index = np.arange(self.args.base_class)
+        target_transform = None
         if self.args.dataset == 'cifar100':
             # class_index = np.arange(self.args.base_class)
+            if self.args.dataset_type == 'biased':
+                class_index = custom_base_classes
+                target_transform = lambda target: class_map[target]
+            elif self.args.dataset_type == 'random':
+                class_index = custom_base_classes_random
+                target_transform = lambda target: class_map_random[target]
+                if self.args.dataset_dir == 'random_1':
+                    class_index = custom_base_classes_random_1
+                    target_transform = lambda target: class_map_random_1[target]
+                elif self.args.dataset_dir == 'random_2':
+                    class_index = custom_base_classes_random_2
+                    target_transform = lambda target: class_map_random_2[target]
+            elif self.args.dataset_type == 'superrandom':
+                if self.args.dataset_dir == 'superrandom_1':
+                    class_index = custom_base_classes_superrandom_1
+                    target_transform = lambda target: class_map_superrandom_1[target]
+                elif self.args.dataset_dir == 'superrandom_2':
+                    class_index = custom_base_classes_superrandom_2
+                    target_transform = lambda target: class_map_superrandom_2[target]
+                elif self.args.dataset_dir == 'superrandom_5':
+                    class_index = custom_base_classes_superrandom_5
+                    target_transform = lambda target: class_map_superrandom_5[target]
             trainset = self.args.Dataset.CIFAR100(root=self.args.dataroot, train=True, download=True,
-                                                  index=class_index, base_sess=True)
+                                                  index=class_index, base_sess=True, target_transform=target_transform)
             testset = self.args.Dataset.CIFAR100(root=self.args.dataroot, train=False, download=False,
-                                                 index=class_index, base_sess=True)
+                                                 index=class_index, base_sess=True, target_transform=target_transform)
 
         if self.args.dataset == 'cub200':
             # class_index = np.arange(self.args.base_class)
@@ -67,7 +91,11 @@ class FSCILTrainer(Trainer):
             testset = self.args.Dataset.MiniImageNet(root=self.args.dataroot, train=False, index=class_index)
 
         # DataLoader(test_set, batch_sampler=sampler, num_workers=8, pin_memory=True)
-        sampler = CategoriesSampler(trainset.targets, self.args.train_episode, self.args.episode_way,
+        labels_trans = []
+        for label in trainset.targets:
+            labels_trans.append(target_transform(label))
+
+        sampler = CategoriesSampler(labels_trans, self.args.train_episode, self.args.episode_way,
                                     self.args.episode_shot + self.args.episode_query)
 
         trainloader = torch.utils.data.DataLoader(dataset=trainset, batch_sampler=sampler, num_workers=8,
@@ -79,11 +107,34 @@ class FSCILTrainer(Trainer):
         return trainset, trainloader, testloader
 
     def get_new_dataloader(self, session):
-        txt_path = "data/index_list/" + self.args.dataset + "/session_" + str(session + 1) + '.txt'
+        txt_path = "data/index_list/" + self.args.dataset_dir + "/session_" + str(session + 1) + '.txt'
+        target_transform = None
         if self.args.dataset == 'cifar100':
+            if self.args.dataset_type == 'biased':
+                txt_path = "data/index_list/biased/" + self.args.dataset + "/session_" + str(session + 1) + '.txt'
+                target_transform = lambda target: class_map[target]
+            elif self.args.dataset_type == 'random':
+                txt_path = "data/index_list/" + self.args.dataset_dir + "/session_" + str(session + 1) + '.txt'
+                target_transform = lambda target: class_map_random[target]
+                if self.args.dataset_dir == 'random_1':
+                    class_index = custom_base_classes_random_1
+                    target_transform = lambda target: class_map_random_1[target]
+                elif self.args.dataset_dir == 'random_2':
+                    class_index = custom_base_classes_random_2
+                    target_transform = lambda target: class_map_random_2[target]
+            elif self.args.dataset_type == 'superrandom':
+                if self.args.dataset_dir == 'superrandom_1':
+                    class_index = custom_base_classes_superrandom_1
+                    target_transform = lambda target: class_map_superrandom_1[target]
+                elif self.args.dataset_dir == 'superrandom_2':
+                    class_index = custom_base_classes_superrandom_2
+                    target_transform = lambda target: class_map_superrandom_2[target]
+                elif self.args.dataset_dir == 'superrandom_5':
+                    class_index = custom_base_classes_superrandom_5
+                    target_transform = lambda target: class_map_superrandom_5[target]
             class_index = open(txt_path).read().splitlines()
             trainset = self.args.Dataset.CIFAR100(root=self.args.dataroot, train=True, download=False,
-                                                  index=class_index, base_sess=False)
+                                                  index=class_index, base_sess=False, target_transform=target_transform)
         if self.args.dataset == 'cub200':
             trainset = self.args.Dataset.CUB200(root=self.args.dataroot, train=True,
                                                 index_path=txt_path)
@@ -103,7 +154,7 @@ class FSCILTrainer(Trainer):
 
         if self.args.dataset == 'cifar100':
             testset = self.args.Dataset.CIFAR100(root=self.args.dataroot, train=False, download=False,
-                                                 index=class_new, base_sess=False)
+                                                 index=class_new, base_sess=False, target_transform=target_transform)
         if self.args.dataset == 'cub200':
             testset = self.args.Dataset.CUB200(root=self.args.dataroot, train=False, index=class_new)
         if self.args.dataset == 'mini_imagenet':
@@ -116,6 +167,37 @@ class FSCILTrainer(Trainer):
 
     def get_session_classes(self, session):
         class_list = np.arange(self.args.base_class + session * self.args.way)
+        if self.args.dataset_type == 'biased':
+            class_list = custom_base_classes.copy()
+            for sess in range(session):
+                class_list += custom_inc_classes[sess]
+        elif self.args.dataset_type == 'random':
+            class_list = custom_base_classes_random.copy()
+            for sess in range(session):
+                class_list += custom_inc_classes_random[sess]
+            
+            if self.args.dataset_dir == 'random_1':
+                class_list = custom_base_classes_random_1.copy()
+                for sess in range(session):
+                    class_list += custom_inc_classes_random_1[sess]
+            elif self.args.dataset_dir == 'random_2':
+                class_list = custom_base_classes_random_2.copy()
+                for sess in range(session):
+                    class_list += custom_inc_classes_random_2[sess]
+
+        elif self.args.dataset_type == 'superrandom':
+            if self.args.dataset_dir == 'superrandom_1':
+                class_list = custom_base_classes_superrandom_1.copy()
+                for sess in range(session):
+                    class_list += custom_inc_classes_superrandom_1[sess]
+            elif self.args.dataset_dir == 'superrandom_2':
+                class_list = custom_base_classes_superrandom_2.copy()
+                for sess in range(session):
+                    class_list += custom_inc_classes_superrandom_2[sess]
+            elif self.args.dataset_dir == 'superrandom_5':
+                class_list = custom_base_classes_superrandom_5.copy()
+                for sess in range(session):
+                    class_list += custom_inc_classes_superrandom_5[sess]
         return class_list
 
     def replace_to_rotate(self, proto_tmp, query_tmp):
@@ -158,8 +240,13 @@ class FSCILTrainer(Trainer):
         # init train statistics
         result_list = [args]
 
-        for session in range(args.start_session, args.sessions):
+        if args.wandb_log:
+            wandb.define_metric("session")
+            wandb.define_metric("session_max_test_acc", step_metric='session')
+            wandb.define_metric("forgetting", step_metric='session')
 
+        for session in range(args.start_session, args.sessions):
+            total_epochs_from_start = 0
             train_set, trainloader, testloader = self.get_dataloader(session)
 
             self.model = self.update_param(self.model, self.best_model_dict)
@@ -170,6 +257,7 @@ class FSCILTrainer(Trainer):
                 optimizer, scheduler = self.get_optimizer_base()
 
                 for epoch in range(args.epochs_base):
+                    epoch_metrics = dict()
                     start_time = time.time()
                     # train base sess
                     self.model.eval()
@@ -226,6 +314,15 @@ class FSCILTrainer(Trainer):
                                   (time.time() - start_time) * (args.epochs_base - epoch) / 60))
                     scheduler.step()
 
+                    if args.wandb_log:
+                        epoch_metrics['train_loss'] = tl
+                        epoch_metrics['train_acc'] = ta
+                        epoch_metrics['test_acc'] = tsa
+                        epoch_metrics['seconds_for_epoch'] = time.time() - start_time
+                        epoch_metrics['session'] = session
+                        wandb.log(epoch_metrics, step=total_epochs_from_start)      
+                        total_epochs_from_start += 1
+
                 # always replace fc with avg mean
                 self.model.load_state_dict(self.best_model_dict)
                 self.model = replace_base_fc(train_set, testloader.dataset.transform, self.model, args)
@@ -241,6 +338,9 @@ class FSCILTrainer(Trainer):
 
                 result_list.append('Session {}, Test Best Epoch {},\nbest test Acc {:.4f}\n'.format(
                     session, self.trlog['max_acc_epoch'], self.trlog['max_acc'][session], ))
+                
+                if args.wandb_log:
+                    wandb.log({'session_max_test_acc':self.trlog['max_acc'][session], 'session': session})  
 
 
 
@@ -266,6 +366,9 @@ class FSCILTrainer(Trainer):
 
                 result_list.append('Session {}, Test Best Epoch {},\nbest test Acc {:.4f}\n'.format(
                     session, self.trlog['max_acc_epoch'], self.trlog['max_acc'][session]))
+                
+                if args.wandb_log:
+                    wandb.log({'session_max_test_acc':self.trlog['max_acc'][session], 'session': session})
 
         result_list.append(self.trlog['max_acc'])
         print(self.trlog['max_acc'])

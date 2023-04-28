@@ -131,3 +131,22 @@ dmypy.json
 .idea/
 params/
 data/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+#storing data
+data/*
+!data/index_list
+
+# wandb
+wandb/
+
+#virutal environment
+env_cfsl/
+
+#hydra
+local_exp
+
+#checkpoints
+checkpoint/

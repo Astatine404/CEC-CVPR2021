@@ -1,6 +1,7 @@
 import argparse
 import importlib
 from utils import *
+import wandb
 
 MODEL_DIR=None
 DATA_DIR = 'data/'
@@ -58,6 +59,10 @@ def get_command_line_parser():
     parser.add_argument('-num_workers', type=int, default=8)
     parser.add_argument('-seed', type=int, default=1)
     parser.add_argument('-debug', action='store_true')
+    parser.add_argument('-wandb_log', type=bool, default=False)
+    parser.add_argument('-wandb_run_name', type=str, default='cec')
+    parser.add_argument('-dataset_type', type=str, default='default')
+    parser.add_argument('-dataset_dir', type=str, default='cifar100')
 
     return parser
 
@@ -69,5 +74,13 @@ if __name__ == '__main__':
     pprint(vars(args))
     args.num_gpu = set_gpu(args)
 
-    trainer = importlib.import_module('models.%s.fscil_trainer' % (args.project)).FSCILTrainer(args)
-    trainer.train()
+    if args.wandb_log:
+        with wandb.init(project='fact', entity="real-lab", config=vars(args), settings=wandb.Settings(start_method="thread")):
+            wandb.run.name = args.wandb_run_name
+            trainer = importlib.import_module('models.%s.fscil_trainer' % (args.project)).FSCILTrainer(args)
+            trainer.train()
+    else:
+        trainer = importlib.import_module('models.%s.fscil_trainer' % (args.project)).FSCILTrainer(args)
+        trainer.train()
+
+    

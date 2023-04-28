@@ -122,7 +122,7 @@ class FSCILTrainer(Trainer):
                 self.model.module.mode = self.args.new_mode
                 self.model.eval()
                 trainloader.dataset.transform = testloader.dataset.transform
-                self.model.module.update_fc(trainloader, np.unique(train_set.targets), session)
+                self.model.module.update_fc(trainloader, np.arange(args.base_class + session * args.way), session)
 
                 tsl, tsa = test(self.model, testloader, 0, args, session)
 
